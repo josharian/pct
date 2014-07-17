@@ -1,9 +1,9 @@
-`pct` calculates the distribution of lines in text. It is similar to `sort | uniq -c`, except that it prints percentages as well as counts. `pct`'s output is unordered; use `sort -n`.
+`pct` calculates the distribution of lines in text. It is similar to `sort | uniq -c | sort -n -r`, except that it prints percentages as well as counts.
 
 Sample output:
 
 ```bash
-$ cat std.qc | grep "clearfat" | pct | sort -n -r | head
+$ cat std.qc | grep "clearfat" | pct | head
  33.05%    1204    clearfat q=2 c=0
  18.80%    685     clearfat q=4 c=0
  17.76%    647     clearfat q=3 c=0

@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"text/tabwriter"
+	"sort"
 )
 
-const usage = `usage: pipe text into pct
+const usage = `usage: ... | pct
 
 pct calculates the distribution of lines in text.
-It is similar to sort | uniq -c, except that it
-prints percentages as well as counts. pct's output
-is unordered; use sort -n.
+It is similar to sort | uniq -c | sort -n -r, except
+that it prints percentages as well as counts.
 `
 
 func pct(r io.Reader, w io.Writer) error {
@@ -31,14 +30,38 @@ func pct(r io.Reader, w io.Writer) error {
 		return nil
 	}
 
-	tw := new(tabwriter.Writer)
-	tw.Init(w, 0, 0, 4, ' ', 0)
-	f := float64(n)
+	var l lines
 	for k, v := range m {
-		fmt.Fprintf(tw, "% 6.2f%%\t%d\t%s\n", 100*float64(v)/f, v, k)
+		l = append(l, line{n: v, s: k})
 	}
-	return tw.Flush()
+	sort.Sort(l)
+
+	f := float64(n)
+	for _, line := range l {
+		_, err := fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", 100*float64(line.n)/f, line.n, line.s)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
+
+type line struct {
+	n int
+	s string
+}
+
+type lines []line
+
+func (l lines) Len() int { return len(l) }
+func (l lines) Less(i, j int) bool {
+	x, y := l[i], l[j]
+	if x.n != y.n {
+		return x.n > y.n // largest-to-smallest
+	}
+	return x.s < y.s
+}
+func (l lines) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 
 func main() {
 	if len(os.Args) > 1 {
@@ -46,8 +69,5 @@ func main() {
 		os.Exit(2)
 	}
 
-	if err := pct(os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	pct(os.Stdin, os.Stdout)
 }
