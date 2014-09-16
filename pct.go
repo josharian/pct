@@ -2,18 +2,45 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 )
 
-const usage = `usage: ... | pct
+func usage() {
+	const help = `usage: ... | pct [-f] [-n]
 
 pct calculates the distribution of lines in text.
 It is similar to sort | uniq -c | sort -n -r, except
 that it prints percentages as well as counts.
 `
+
+	fmt.Fprintln(os.Stderr, help)
+	flag.PrintDefaults()
+}
+
+func dump(w io.Writer, m map[string]int) error {
+	var l lines
+	var tot int
+	for k, v := range m {
+		l = append(l, line{n: v, s: k})
+		tot += v
+	}
+	sort.Sort(l)
+
+	f := 100 / float64(tot)
+	lim := *limit
+	for i := 0; i < len(l) && (lim <= 0 || i < lim); i++ {
+		line := l[i]
+		_, err := fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", f*float64(line.n), line.n, line.s)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func pct(r io.Reader, w io.Writer) error {
 	s := bufio.NewScanner(r)
@@ -22,28 +49,21 @@ func pct(r io.Reader, w io.Writer) error {
 	for s.Scan() {
 		m[s.Text()]++
 		n++
-	}
-	if err := s.Err(); err != nil {
-		return err
-	}
-	if n == 0 {
-		return nil
-	}
-
-	var l lines
-	for k, v := range m {
-		l = append(l, line{n: v, s: k})
-	}
-	sort.Sort(l)
-
-	f := float64(n)
-	for _, line := range l {
-		_, err := fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", 100*float64(line.n)/f, line.n, line.s)
-		if err != nil {
-			return err
+		if *every > 0 && n%*every == 0 {
+			if err := dump(w, m); err != nil {
+				return err
+			} else {
+				fmt.Fprintln(w)
+			}
 		}
 	}
-	return nil
+	if err := s.Err(); err != nil {
+		dump(w, m)
+		fmt.Fprintf(w, "Stopped at line %d: %v\n", n, err)
+		return err
+	}
+
+	return dump(w, m)
 }
 
 type line struct {
@@ -63,11 +83,14 @@ func (l lines) Less(i, j int) bool {
 }
 func (l lines) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 
+var (
+	every = flag.Int("f", 0, "print running percents every f lines")
+	limit = flag.Int("n", 0, "only print top n lines")
+)
+
 func main() {
-	if len(os.Args) > 1 {
-		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(2)
-	}
+	flag.Usage = usage
+	flag.Parse()
 
 	pct(os.Stdin, os.Stdout)
 }
