@@ -10,7 +10,7 @@ import (
 )
 
 func usage() {
-	const help = `usage: ... | pct [-f] [-n]
+	const help = `usage: ... | pct [-f] [-n] [-c]
 
 pct calculates the distribution of lines in text.
 It is similar to sort | uniq -c | sort -n -r, except
@@ -32,9 +32,17 @@ func dump(w io.Writer, m map[string]int) error {
 
 	f := 100 / float64(tot)
 	lim := *limit
+	runtot := 0
 	for i := 0; i < len(l) && (lim <= 0 || i < lim); i++ {
 		line := l[i]
-		_, err := fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", f*float64(line.n), line.n, line.s)
+		var err error
+		runtot += line.n
+		p := f * float64(line.n)
+		if *cum {
+			_, err = fmt.Fprintf(w, "% 6.2f%% % 6.2f%%% 6d %s\n", p, f*float64(runtot), line.n, line.s)
+		} else {
+			_, err = fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", p, line.n, line.s)
+		}
 		if err != nil {
 			return err
 		}
@@ -86,6 +94,7 @@ func (l lines) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 var (
 	every = flag.Int("f", 0, "print running percents every f lines")
 	limit = flag.Int("n", 0, "only print top n lines")
+	cum   = flag.Bool("c", false, "print cumulative percents as well")
 )
 
 func main() {
