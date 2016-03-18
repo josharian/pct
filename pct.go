@@ -40,7 +40,7 @@ func (m mcount) Top(n int) []stringCount {
 	if n == 0 {
 		return l
 	}
-	sort.Sort(stringsByCount(top))
+	sort.Sort(stringsByCount(l))
 	return l[:n]
 }
 
