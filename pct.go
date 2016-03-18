@@ -21,23 +21,37 @@ that it prints percentages as well as counts.
 	flag.PrintDefaults()
 }
 
-func dump(w io.Writer, m map[string]int) error {
-	var l lines
-	var tot int
-	for k, v := range m {
-		l = append(l, line{n: v, s: k})
-		tot += v
-	}
-	sort.Sort(l)
+type recorder interface {
+	Record([]byte)
+	Top(int) []stringCount
+}
 
+type mcount map[string]uint64
+
+func (m mcount) Record(b []byte) {
+	m[string(b)]++
+}
+
+func (m mcount) Top(n int) []stringCount {
+	var l []stringCount
+	for k, v := range m {
+		l = append(l, stringCount{n: v, s: k})
+	}
+	if n == 0 {
+		return l
+	}
+	return l[:n]
+}
+
+func dump(w io.Writer, tot int, r recorder) error {
 	f := 100 / float64(tot)
-	lim := *limit
-	runtot := 0
-	for i := 0; i < len(l) && (lim <= 0 || i < lim); i++ {
-		line := l[i]
-		var err error
+	runtot := uint64(0)
+	top := r.Top(*limit)
+	sort.Sort(stringsByCount(top))
+	for _, line := range top {
 		runtot += line.n
 		p := f * float64(line.n)
+		var err error
 		if *cum {
 			_, err = fmt.Fprintf(w, "% 6.2f%% % 6.2f%%% 6d %s\n", p, f*float64(runtot), line.n, line.s)
 		} else {
@@ -50,15 +64,14 @@ func dump(w io.Writer, m map[string]int) error {
 	return nil
 }
 
-func pct(r io.Reader, w io.Writer) error {
+func pct(r io.Reader, w io.Writer, rec recorder) error {
 	s := bufio.NewScanner(r)
-	m := make(map[string]int)
 	n := 0
 	for s.Scan() {
-		m[s.Text()]++
+		rec.Record(s.Bytes())
 		n++
 		if *every > 0 && n%*every == 0 {
-			if err := dump(w, m); err != nil {
+			if err := dump(w, n, rec); err != nil {
 				return err
 			} else {
 				fmt.Fprintln(w)
@@ -66,40 +79,38 @@ func pct(r io.Reader, w io.Writer) error {
 		}
 	}
 	if err := s.Err(); err != nil {
-		dump(w, m)
+		dump(w, n, rec)
 		fmt.Fprintf(w, "Stopped at line %d: %v\n", n, err)
 		return err
 	}
-
-	return dump(w, m)
+	return dump(w, n, rec)
 }
-
-type line struct {
-	n int
-	s string
-}
-
-type lines []line
-
-func (l lines) Len() int { return len(l) }
-func (l lines) Less(i, j int) bool {
-	x, y := l[i], l[j]
-	if x.n != y.n {
-		return x.n > y.n // largest-to-smallest
-	}
-	return x.s < y.s
-}
-func (l lines) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 
 var (
-	every = flag.Int("f", 0, "print running percents every f lines")
-	limit = flag.Int("n", 0, "only print top n lines")
-	cum   = flag.Bool("c", false, "print cumulative percents as well")
+	every  = flag.Int("f", 0, "print running percents every f lines, requires -n")
+	limit  = flag.Int("n", 0, "only print top n lines")
+	cum    = flag.Bool("c", false, "print cumulative percents as well")
+	approx = flag.Bool("x", false, "use a fast approximate counter, only suitable for large input, requires -n")
 )
 
 func main() {
 	flag.Usage = usage
 	flag.Parse()
+	if *approx && *limit == 0 {
+		fmt.Fprintln(os.Stderr, "-x requires -n")
+		os.Exit(2)
+	}
+	if *every != 0 && *limit == 0 {
+		fmt.Fprintln(os.Stderr, "-f requires -n")
+		os.Exit(2)
+	}
 
-	pct(os.Stdin, os.Stdout)
+	var r recorder
+	if *approx {
+		r = newTopK(*limit, 8, 16384)
+	} else {
+		r = make(mcount)
+	}
+
+	pct(os.Stdin, os.Stdout, r)
 }
