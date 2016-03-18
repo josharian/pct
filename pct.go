@@ -37,10 +37,10 @@ func (m mcount) Top(n int) []stringCount {
 	for k, v := range m {
 		l = append(l, stringCount{n: v, s: k})
 	}
+	sort.Sort(stringsByCount(l))
 	if n == 0 {
 		return l
 	}
-	sort.Sort(stringsByCount(l))
 	return l[:n]
 }
 
