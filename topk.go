@@ -3,6 +3,7 @@ package main
 import (
 	"container/heap"
 	"math"
+	"sort"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -109,5 +110,6 @@ func (t *topK) Top(n int) []stringCount {
 	}
 	top := make([]stringCount, len(t.top))
 	copy(top, t.top)
+	sort.Sort(stringsByCount(top))
 	return top
 }

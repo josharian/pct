@@ -40,6 +40,7 @@ func (m mcount) Top(n int) []stringCount {
 	if n == 0 {
 		return l
 	}
+	sort.Sort(stringsByCount(top))
 	return l[:n]
 }
 
@@ -47,7 +48,6 @@ func dump(w io.Writer, tot int, r recorder) error {
 	f := 100 / float64(tot)
 	runtot := uint64(0)
 	top := r.Top(*limit)
-	sort.Sort(stringsByCount(top))
 	for _, line := range top {
 		runtot += line.n
 		p := f * float64(line.n)
