@@ -38,7 +38,7 @@ func (m mcount) Top(n int) []stringCount {
 		l = append(l, stringCount{n: v, s: k})
 	}
 	sort.Sort(stringsByCount(l))
-	if n == 0 {
+	if n > len(l) {
 		return l
 	}
 	return l[:n]
