@@ -24,6 +24,7 @@ that it prints percentages as well as counts.
 type recorder interface {
 	Record([]byte)
 	Top(int) []stringCount
+	All() []stringCount
 }
 
 type mcount map[string]uint64
@@ -44,10 +45,24 @@ func (m mcount) Top(n int) []stringCount {
 	return l[:n]
 }
 
+func (m mcount) All() []stringCount {
+	var l []stringCount
+	for k, v := range m {
+		l = append(l, stringCount{n: v, s: k})
+	}
+	sort.Sort(stringsByCount(l))
+	return l
+}
+
 func dump(w io.Writer, tot int, r recorder) error {
 	f := 100 / float64(tot)
 	runtot := uint64(0)
-	top := r.Top(*limit)
+	var top []stringCount
+	if *limit == 0 {
+		top = r.All()
+	} else {
+		top = r.Top(*limit)
+	}
 	for _, line := range top {
 		runtot += line.n
 		p := f * float64(line.n)
@@ -96,12 +111,12 @@ var (
 func main() {
 	flag.Usage = usage
 	flag.Parse()
-	if *approx && *limit == 0 {
-		fmt.Fprintln(os.Stderr, "-x requires -n")
+	if *approx && *limit <= 0 {
+		fmt.Fprintln(os.Stderr, "-x requires -n > 0")
 		os.Exit(2)
 	}
-	if *every != 0 && *limit == 0 {
-		fmt.Fprintln(os.Stderr, "-f requires -n")
+	if *every != 0 && *limit <= 0 {
+		fmt.Fprintln(os.Stderr, "-f requires -n > 0")
 		os.Exit(2)
 	}
 

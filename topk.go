@@ -113,3 +113,7 @@ func (t *topK) Top(n int) []stringCount {
 	sort.Sort(stringsByCount(top))
 	return top
 }
+
+func (t *topK) All() []stringCount {
+	panic("topk cannot print all entries")
+}
