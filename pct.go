@@ -67,9 +67,12 @@ func dump(w io.Writer, tot int, r recorder) error {
 		runtot += line.n
 		p := f * float64(line.n)
 		var err error
-		if *cum {
+		switch {
+		case *cum:
 			_, err = fmt.Fprintf(w, "% 6.2f%% % 6.2f%%% 6d %s\n", p, f*float64(runtot), line.n, line.s)
-		} else {
+		case *quiet:
+			_, err = fmt.Fprintln(w, line.s)
+		default:
 			_, err = fmt.Fprintf(w, "% 6.2f%%% 6d %s\n", p, line.n, line.s)
 		}
 		if err != nil {
@@ -106,6 +109,7 @@ var (
 	limit  = flag.Int("n", 0, "only print top n lines")
 	cum    = flag.Bool("c", false, "print cumulative percents as well")
 	approx = flag.Bool("x", false, "use a fast approximate counter, only suitable for large input, requires -n")
+	quiet  = flag.Bool("q", false, "print only sorted lines; do not print percents or counts")
 )
 
 func main() {
@@ -117,6 +121,10 @@ func main() {
 	}
 	if *every != 0 && *limit <= 0 {
 		fmt.Fprintln(os.Stderr, "-f requires -n > 0")
+		os.Exit(2)
+	}
+	if *cum && *quiet {
+		fmt.Fprintln(os.Stderr, "-c and -q conflict")
 		os.Exit(2)
 	}
 
