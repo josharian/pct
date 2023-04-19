@@ -15,3 +15,7 @@ $ cat std.qc | grep "clearfat" | pct | head
   1.73%    63      clearfat q=4 c=4
   1.40%    51      clearfat q=7 c=0
 ```
+
+I originally wrote it for compiler investigations, but have found it to be broadly useful.
+
+This kind of tool seems to be prone to convergent evolution: https://blog.mozilla.org/nnethercote/2018/07/24/ad-hoc-profiling/
